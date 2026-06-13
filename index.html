@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F7F6F2">
+<title>World Cup 2026 Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   WORLD CUP 2026 LIVE — thiết kế mobile-first cho iPhone
+   Bảng màu 3 nước chủ nhà: Đỏ Canada #C8102E · Lục Mexico #006847 ·
+   Lam Mỹ #0A3161 trên nền sáng #F7F6F2
+===================================================================== */
+:root{
+  --bg:#F7F6F2; --card:#FFFFFF; --ink:#11161C; --mut:#6B7280;
+  --line:#E7E5DE;
+  --red:#C8102E; --green:#006847; --blue:#0A3161; --gold:#F9A825;
+  --radius:16px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--ink);
+  font-family:'Archivo',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{padding-bottom:calc(76px + var(--safe-b))}
+
+/* ---------- Header ---------- */
+header{position:sticky;top:0;z-index:50;background:rgba(247,246,242,.92);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.ribbon{display:flex;height:4px}
+.ribbon span{flex:1}
+.ribbon span:nth-child(1){background:var(--red)}
+.ribbon span:nth-child(2){background:var(--green)}
+.ribbon span:nth-child(3){background:var(--blue)}
+.head-row{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 10px}
+.brand{font-family:'Archivo Black',sans-serif;font-size:20px;letter-spacing:-.5px}
+.brand small{display:block;font-family:'Archivo',sans-serif;font-weight:500;
+  font-size:11px;color:var(--mut);letter-spacing:.6px;margin-top:1px}
+.btn-refresh{border:1px solid var(--line);background:var(--card);color:var(--ink);
+  border-radius:99px;padding:8px 14px;font-size:13px;font-weight:700;
+  font-family:inherit;display:flex;align-items:center;gap:6px;cursor:pointer}
+.btn-refresh:active{transform:scale(.95)}
+.btn-refresh.spin svg{animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.updated{padding:0 16px 8px;font-size:11px;color:var(--mut)}
+
+/* ---------- Trang ---------- */
+main{padding:14px 14px 0;max-width:680px;margin:0 auto}
+.page{display:none}
+.page.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2.sec{font-family:'Archivo Black',sans-serif;font-size:15px;margin:18px 2px 10px;
+  display:flex;align-items:center;gap:8px}
+h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
+
+/* ---------- Thẻ trận đấu ---------- */
+.mcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin-bottom:10px;position:relative;overflow:hidden}
+.mcard.live{border-color:var(--red)}
+.mcard.live::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--red)}
+.mtop{display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:var(--mut);margin-bottom:10px;font-weight:500}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:99px;
+  padding:2px 9px;font-weight:700;color:var(--ink)}
+.badge{border-radius:99px;padding:3px 10px;font-weight:700;font-size:11px}
+.badge.live{background:var(--red);color:#fff;display:flex;align-items:center;gap:5px}
+.badge.live .dot{width:6px;height:6px;border-radius:50%;background:#fff;
+  animation:pulse 1s ease infinite}
+@keyframes pulse{50%{opacity:.25}}
+.badge.ft{background:var(--ink);color:#fff}
+.badge.soon{background:#EAF1FB;color:var(--blue)}
+.mrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.team{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.team .flag{font-size:32px;line-height:1}
+.team .name{font-weight:700;font-size:13px}
+.score{font-family:'Archivo Black',sans-serif;font-size:30px;letter-spacing:1px;
+  text-align:center;min-width:86px}
+.score .time{font-family:'Archivo',sans-serif;font-weight:700;font-size:17px;
+  color:var(--blue)}
+.minfo{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:11px;padding-top:10px;
+  border-top:1px dashed var(--line);font-size:12px;color:var(--mut)}
+.minfo b{color:var(--ink);font-weight:700}
+.ai-chip{margin-top:10px;background:linear-gradient(90deg,#FFF7E0,#FFFDF4);
+  border:1px solid #F2E2AC;border-radius:12px;padding:8px 11px;font-size:12px}
+.ai-chip .head{font-weight:800;color:#8A6D00;display:flex;justify-content:space-between}
+.ai-chip .probs{display:flex;gap:10px;margin-top:3px;color:var(--mut);font-size:11px}
+.ai-chip .cmt{margin-top:4px;color:#4B4B45}
+
+/* ---------- Ngày ---------- */
+.daypill{position:sticky;top:84px;z-index:5;display:inline-block;background:var(--ink);
+  color:#fff;border-radius:99px;padding:5px 14px;font-size:12px;font-weight:700;
+  margin:14px 0 10px}
+
+/* ---------- Bảng xếp hạng ---------- */
+.gcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  margin-bottom:12px;overflow:hidden}
+.gcard .ghead{display:flex;align-items:center;gap:10px;padding:11px 14px;
+  border-bottom:1px solid var(--line)}
+.gcard .gletter{font-family:'Archivo Black',sans-serif;font-size:18px;width:34px;
+  height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  color:#fff}
+.gcard table{width:100%;border-collapse:collapse;font-size:12.5px}
+.gcard th{font-size:10px;color:var(--mut);font-weight:700;text-transform:uppercase;
+  letter-spacing:.4px;padding:7px 6px;text-align:center}
+.gcard td{padding:8px 6px;text-align:center;border-top:1px solid #F1EFE9}
+.gcard td.t{text-align:left;font-weight:700;white-space:nowrap}
+.gcard td.pts{font-family:'Archivo Black',sans-serif}
+.pos{display:inline-flex;width:18px;height:18px;border-radius:6px;align-items:center;
+  justify-content:center;font-size:10px;font-weight:800}
+.pos.q{background:#DCEFE5;color:var(--green)}
+.pos.m{background:#FFF3D6;color:#9A7400}
+.pos.x{background:#F2F1ED;color:var(--mut)}
+.legend{font-size:11px;color:var(--mut);margin:4px 2px 16px}
+
+/* ---------- Trạng thái trống ---------- */
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);
+  padding:26px 16px;text-align:center;color:var(--mut);font-size:13px;margin-top:10px}
+.empty .big{font-size:30px;margin-bottom:6px}
+
+/* ---------- Nút AI & toast ---------- */
+.btn-ai{width:100%;border:none;border-radius:14px;padding:14px;margin:4px 0 14px;
+  background:linear-gradient(135deg,var(--blue),#155CA8);color:#fff;font-size:14px;
+  font-weight:800;font-family:inherit;display:flex;align-items:center;
+  justify-content:center;gap:8px;cursor:pointer}
+.btn-ai:active{transform:scale(.98)}
+.btn-ai:disabled{opacity:.6}
+.toast{position:fixed;left:50%;bottom:calc(96px + var(--safe-b));transform:translateX(-50%);
+  background:var(--ink);color:#fff;border-radius:99px;padding:10px 18px;font-size:13px;
+  font-weight:700;z-index:99;opacity:0;transition:opacity .3s;pointer-events:none;
+  max-width:88vw;text-align:center}
+.toast.show{opacity:1}
+
+/* ---------- Tab bar kiểu iOS ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:rgba(255,255,255,.94);backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);
+  display:flex;padding:6px 4px calc(6px + var(--safe-b))}
+nav button{flex:1;border:none;background:none;font-family:inherit;color:var(--mut);
+  font-size:10px;font-weight:700;display:flex;flex-direction:column;align-items:center;
+  gap:3px;padding:5px 0;cursor:pointer}
+nav button .ico{font-size:21px;line-height:1}
+nav button.on{color:var(--blue)}
+nav button.on .ico{transform:translateY(-1px)}
+
+/* ---------- Loading ---------- */
+#loader{display:flex;flex-direction:column;align-items:center;gap:14px;padding:70px 0}
+.ball{font-size:42px;animation:bounce 1s ease infinite}
+@keyframes bounce{50%{transform:translateY(-14px) rotate(180deg)}}
+#loader p{color:var(--mut);font-size:13px}
+
+@media(min-width:560px){
+  .team .flag{font-size:38px}
+  .team .name{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="ribbon"><span></span><span></span><span></span></div>
+  <div class="head-row">
+    <div class="brand">WORLD CUP 26<small>MỸ · CANADA · MEXICO — 48 ĐỘI · 12 BẢNG</small></div>
+    <button class="btn-refresh" id="btnRefresh" onclick="forceRefresh()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      Làm mới
+    </button>
+  </div>
+  <div class="updated" id="updated">Đang tải dữ liệu…</div>
+</header>
+
+<main>
+  <div id="loader"><div class="ball">⚽</div><p>Đang tải World Cup 2026…</p></div>
+
+  <section class="page on" id="page-today"></section>
+  <section class="page" id="page-schedule"></section>
+  <section class="page" id="page-groups"></section>
+  <section class="page" id="page-ai"></section>
+</main>
+
+<nav>
+  <button class="on" data-page="today"   onclick="goTab(this)"><span class="ico">🔴</span>Hôm nay</button>
+  <button data-page="schedule" onclick="goTab(this)"><span class="ico">📅</span>Lịch đấu</button>
+  <button data-page="groups"   onclick="goTab(this)"><span class="ico">🏆</span>12 Bảng</button>
+  <button data-page="ai"       onclick="goTab(this)"><span class="ico">🤖</span>AI Dự đoán</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   LOGIC GIAO DIỆN — gọi REST API Node.js (/api/data, /api/predict)
+===================================================================== */
+const TZ = 'Asia/Ho_Chi_Minh';
+const GROUP_COLORS = ['#C8102E','#006847','#0A3161','#B45309','#7C3AED','#0E7490',
+                      '#BE185D','#15803D','#1D4ED8','#9F1239','#4D7C0F','#6D28D9'];
+let APP = null;          // dữ liệu từ API
+let TEAM = {};           // map TeamEN -> {vi, flag, group}
+let PRED = {};           // map matchId -> prediction
+
+window.addEventListener('load', () => {
+  loadData(false);
+  setInterval(() => loadData(false), 60000);  // tự làm mới mỗi 60 giây
+});
+
+async function loadData(force){
+  try{
+    const res = await fetch('/api/data' + (force ? '?refresh=1' : ''));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    onData(await res.json());
+    return true;
+  }catch(e){
+    toast('Lỗi tải dữ liệu: ' + e.message);
+    return false;
+  }
+}
+
+async function forceRefresh(){
+  const b = document.getElementById('btnRefresh');
+  b.classList.add('spin');
+  const ok = await loadData(true);
+  b.classList.remove('spin');
+  if (ok) toast('Đã cập nhật tỷ số mới nhất ⚽');
+}
+
+function onData(data){
+  APP = data;
+  TEAM = {}; PRED = {};
+  (APP.teams || []).forEach(t => TEAM[t.en] = { group: t.group, vi: t.vi, flag: t.flag });
+  (APP.predictions || []).forEach(p => PRED[String(p.matchId)] = p);
+  document.getElementById('loader').style.display = 'none';
+
+  const syncTxt = APP.lastSyncAt
+    ? 'Cập nhật lúc ' + new Date(APP.lastSyncAt).toLocaleTimeString('vi-VN',
+        { hour: '2-digit', minute: '2-digit', timeZone: TZ }) + ' (giờ VN)'
+    : 'Chưa đồng bộ được dữ liệu';
+  document.getElementById('updated').textContent =
+    syncTxt + (APP.source ? ' · nguồn: ' + APP.source : '') + ' · tự làm mới mỗi phút';
+
+  renderToday(); renderSchedule(); renderGroups(); renderAI();
+}
+
+/* ---------- tiện ích ---------- */
+const vnDate = d => new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }); // yyyy-mm-dd
+const vnTime = d => new Date(d).toLocaleTimeString('vi-VN',
+  { hour: '2-digit', minute: '2-digit', timeZone: TZ });
+const vnLong = d => new Date(d).toLocaleDateString('vi-VN',
+  { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: TZ });
+const num = n => Number(n).toLocaleString('vi-VN');
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isLive = m => m.status === 'ĐANG ĐÁ' || m.status === 'Nghỉ giữa hiệp';
+const isDone = m => m.status === 'Kết thúc';
+
+function teamCell(en){
+  const t = TEAM[en] || { vi: en, flag: '⚽' };
+  return `<div class="team"><span class="flag">${t.flag}</span>
+          <span class="name">${esc(t.vi)}</span></div>`;
+}
+
+function matchCard(m, showPred){
+  const live = isLive(m), done = isDone(m);
+  const badge = live ? `<span class="badge live"><span class="dot"></span>${m.status === 'ĐANG ĐÁ' ? 'TRỰC TIẾP' : 'GIỮA HIỆP'}</span>`
+              : done ? `<span class="badge ft">KẾT THÚC</span>`
+              : `<span class="badge soon">${esc(m.status)}</span>`;
+  const center = (live || done)
+    ? `<div class="score">${m.homeGoals ?? '–'}<span style="color:#C9C6BD"> : </span>${m.awayGoals ?? '–'}</div>`
+    : `<div class="score"><span class="time">${vnTime(m.dateUTC)}</span></div>`;
+
+  const info = [];
+  if (m.venue) info.push(`🏟️ <b>${esc(m.venue)}</b>${m.city ? ' · ' + esc(m.city) : ''}`);
+  else if (m.city) info.push(`📍 ${esc(m.city)}`);
+  if (m.attendance) info.push(`👥 <b>${num(m.attendance)}</b> khán giả`);
+
+  let ai = '';
+  const p = PRED[String(m.id)];
+  if (showPred && p && !done){
+    ai = `<div class="ai-chip">
+      <div class="head"><span>🤖 Gemini dự đoán</span><span>${p.predHome} – ${p.predAway}</span></div>
+      <div class="probs"><span>Thắng ${p.probHome}%</span><span>Hòa ${p.probDraw}%</span><span>Thua ${p.probAway}%</span></div>
+      <div class="cmt">${esc(p.comment)}</div></div>`;
+  }
+
+  return `<div class="mcard${live ? ' live' : ''}">
+    <div class="mtop">
+      <span class="chip">${m.group ? 'Bảng ' + esc(m.group) : esc(m.stage)}</span>${badge}
+    </div>
+    <div class="mrow">${teamCell(m.home)}${center}${teamCell(m.away)}</div>
+    ${info.length ? `<div class="minfo">${info.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
+    ${ai}
+  </div>`;
+}
+
+/* ---------- TAB HÔM NAY ---------- */
+function renderToday(){
+  const el = document.getElementById('page-today');
+  const today = vnDate(new Date());
+  const list = (APP.matches || []).filter(m => vnDate(m.dateUTC) === today)
+    .sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
+
+  const lives = list.filter(isLive);
+  const dones = list.filter(isDone);
+  const next  = list.filter(m => !isLive(m) && !isDone(m));
+  let html = '';
+
+  if (lives.length){
+    html += `<h2 class="sec"><span class="bar" style="background:var(--red)"></span>Đang thi đấu</h2>`
+          + lives.map(m => matchCard(m, true)).join('');
+  }
+  if (next.length){
+    html += `<h2 class="sec"><span class="bar" style="background:var(--blue)"></span>Sắp diễn ra hôm nay</h2>`
+          + next.map(m => matchCard(m, true)).join('');
+  }
+  if (dones.length){
+    html += `<h2 class="sec"><span class="bar"></span>Đã kết thúc hôm nay</h2>`
+          + dones.map(m => matchCard(m, true)).join('');
+  }
+
+  if (!list.length){
+    const future = (APP.matches || []).filter(m => vnDate(m.dateUTC) > today)
+      .sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
+    if (future.length){
+      const nextDay = vnDate(future[0].dateUTC);
+      const dayList = future.filter(m => vnDate(m.dateUTC) === nextDay);
+      html = `<div class="empty"><div class="big">😴</div>Hôm nay không có trận nào.</div>
+        <h2 class="sec"><span class="bar" style="background:var(--blue)"></span>
+        Ngày thi đấu kế tiếp — ${vnLong(future[0].dateUTC)}</h2>`
+        + dayList.map(m => matchCard(m, true)).join('');
+    } else {
+      html = `<div class="empty"><div class="big">⚽</div>
+        Chưa có dữ liệu. Bấm "Làm mới" hoặc kiểm tra biến môi trường trên Vercel.</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+/* ---------- TAB LỊCH ĐẤU ---------- */
+function renderSchedule(){
+  const el = document.getElementById('page-schedule');
+  const sorted = [...(APP.matches || [])].sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
+  if (!sorted.length){
+    el.innerHTML = `<div class="empty"><div class="big">📅</div>Chưa có lịch thi đấu.</div>`;
+    return;
+  }
+  const today = vnDate(new Date());
+  let html = '', curDay = '';
+  sorted.forEach(m => {
+    const d = vnDate(m.dateUTC);
+    if (d !== curDay){
+      curDay = d;
+      const label = d === today ? 'HÔM NAY — ' + vnLong(m.dateUTC) : vnLong(m.dateUTC);
+      html += `<div class="daypill" ${d === today ? 'id="todayAnchor"' : ''}>${label}</div>`;
+    }
+    html += matchCard(m, false);
+  });
+  el.innerHTML = html;
+}
+
+/* ---------- TAB 12 BẢNG + BXH ---------- */
+function renderGroups(){
+  const el = document.getElementById('page-groups');
+  const byGroup = {};
+  (APP.standings || []).forEach(r => (byGroup[r.group] = byGroup[r.group] || []).push(r));
+  const letters = Object.keys(byGroup).sort();
+
+  if (!letters.length){
+    el.innerHTML = `<div class="empty"><div class="big">🏆</div>BXH sẽ hiện sau khi đồng bộ dữ liệu.</div>`;
+    return;
+  }
+
+  let html = `<div class="legend">🟩 Hạng 1–2 vào thẳng vòng 1/16 · 🟨 Hạng 3 chờ xét
+              (8/12 đội hạng ba tốt nhất đi tiếp)</div>`;
+  letters.forEach((g, gi) => {
+    const rows = byGroup[g];
+    html += `<div class="gcard">
+      <div class="ghead">
+        <span class="gletter" style="background:${GROUP_COLORS[gi % 12]}">${g}</span>
+        <b>Bảng ${g}</b>
+      </div>
+      <table>
+        <tr><th style="width:30px">#</th><th style="text-align:left">Đội</th>
+            <th>Tr</th><th>T</th><th>H</th><th>B</th><th>HS</th><th>Đ</th></tr>
+        ${rows.map(r => {
+          const t = TEAM[r.team] || { vi: r.team, flag: '' };
+          const cls = r.pos <= 2 ? 'q' : r.pos === 3 ? 'm' : 'x';
+          return `<tr>
+            <td><span class="pos ${cls}">${r.pos}</span></td>
+            <td class="t">${t.flag} ${esc(t.vi)}</td>
+            <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
+            <td>${r.gd > 0 ? '+' + r.gd : r.gd}</td><td class="pts">${r.pts}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+/* ---------- TAB AI DỰ ĐOÁN ---------- */
+function renderAI(){
+  const el = document.getElementById('page-ai');
+  let html = `<button class="btn-ai" id="btnAI" onclick="runPredict()">
+      🤖 Tạo dự đoán cho các trận sắp tới (Gemini 2.5)
+    </button>`;
+
+  const preds = APP.predictions || [];
+  if (!preds.length){
+    html += `<div class="empty"><div class="big">🔮</div>
+      Chưa có dự đoán nào. Bấm nút trên để Gemini phân tích các trận trong 48 giờ tới.
+      (Hệ thống cũng tự chạy mỗi 6h sáng.)</div>`;
+  } else {
+    const matchById = {};
+    (APP.matches || []).forEach(m => matchById[String(m.id)] = m);
+    html += `<h2 class="sec"><span class="bar" style="background:var(--gold)"></span>
+             Dự đoán của Gemini (${preds.length} trận)</h2>`;
+    preds.forEach(p => {
+      const m = matchById[String(p.matchId)];
+      const h = TEAM[m ? m.home : ''] || { vi: m ? m.home : '?', flag: '' };
+      const a = TEAM[m ? m.away : ''] || { vi: m ? m.away : '?', flag: '' };
+      let topline = 'Chưa đá';
+      if (m && isDone(m)){
+        const okScore = m.homeGoals === p.predHome && m.awayGoals === p.predAway;
+        const okWinner = Math.sign(m.homeGoals - m.awayGoals) === Math.sign(p.predHome - p.predAway);
+        topline = `Kết quả thật: ${m.homeGoals}–${m.awayGoals}`
+                + (okScore ? ' · ✅ Đúng tỷ số!' : okWinner ? ' · ☑️ Đúng kết quả' : ' · ❌ Sai');
+      }
+      const dateTxt = m ? vnLong(m.dateUTC) : '';
+      html += `<div class="mcard">
+        <div class="mtop"><span class="chip">${esc(dateTxt)}</span>
+          <span style="font-weight:700">${topline}</span></div>
+        <div class="mrow">
+          <div class="team"><span class="flag">${h.flag}</span><span class="name">${esc(h.vi)}</span></div>
+          <div class="score">${p.predHome}<span style="color:#C9C6BD"> : </span>${p.predAway}</div>
+          <div class="team"><span class="flag">${a.flag}</span><span class="name">${esc(a.vi)}</span></div>
+        </div>
+        <div class="ai-chip">
+          <div class="probs"><span>Thắng ${p.probHome}%</span><span>Hòa ${p.probDraw}%</span><span>Thua ${p.probAway}%</span></div>
+          <div class="cmt">${esc(p.comment)}</div>
+        </div>
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+async function runPredict(){
+  const b = document.getElementById('btnAI');
+  b.disabled = true; b.textContent = '🤖 Gemini đang phân tích…';
+  try{
+    const res = await fetch('/api/predict', { method: 'POST' });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || 'HTTP ' + res.status);
+    await loadData(false);
+    toast(out.message || 'Đã tạo dự đoán.');
+  }catch(e){
+    toast('Lỗi: ' + e.message);
+    renderAI();
+  }
+}
+
+/* ---------- Tab bar ---------- */
+function goTab(btn){
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.getElementById('page-' + btn.dataset.page).classList.add('on');
+  window.scrollTo({ top: 0 });
+  if (btn.dataset.page === 'schedule'){
+    const anchor = document.getElementById('todayAnchor');
+    if (anchor) setTimeout(() => anchor.scrollIntoView({ block: 'start' }), 60);
+  }
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>

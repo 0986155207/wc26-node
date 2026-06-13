@@ -1,0 +1,239 @@
+/************************************************************************
+ *  lib/gemini.js — Gemini 2.5 Flash qua SDK @google/genai
+ *  1. predictMatches()   — dự đoán tỷ số + xác suất (structured JSON)
+ *  2. enrichAttendance() — Google Search grounding: sân + số khán giả
+ *  3. fetchScoresViaAI() — dự phòng tra tỷ số khi không có API token
+ ************************************************************************/
+
+import { GoogleGenAI, Type } from '@google/genai';
+import { sql, ensureSchema } from './db.js';
+import { normalizeTeam } from './teams.js';
+
+const MODEL = 'gemini-3.5-flash';
+
+let _ai = null;
+function ai() {
+  if (!_ai) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('Thiếu GEMINI_API_KEY trong biến môi trường.');
+    }
+    _ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return _ai;
+}
+
+/** Trích JSON từ câu trả lời có thể kèm văn bản / ```json``` */
+function extractJson(text) {
+  if (!text) return null;
+  const cleaned = String(text).replace(/```json|```/g, '').trim();
+  try { return JSON.parse(cleaned); } catch { /* thử cách khác */ }
+  const m = cleaned.match(/[\[{][\s\S]*[\]}]/);
+  if (m) { try { return JSON.parse(m[0]); } catch { /* bỏ */ } }
+  return null;
+}
+
+/* ====================================================================
+ *  1. DỰ ĐOÁN — tỷ số, số bàn thắng, xác suất thắng/hòa/thua
+ * ==================================================================== */
+
+export async function predictMatches() {
+  await ensureSchema();
+  const q = sql();
+
+  // Trận trong 48 giờ tới, chưa đá, chưa có dự đoán (tối đa 12 trận/lần)
+  const targets = await q`
+    SELECT m.* FROM matches m
+    LEFT JOIN predictions p ON p.match_id = m.id
+    WHERE p.match_id IS NULL
+      AND m.status = 'Sắp diễn ra'
+      AND m.date_utc BETWEEN now() - interval '2 hours'
+                         AND now() + interval '48 hours'
+    ORDER BY m.date_utc
+    LIMIT 12`;
+
+  if (!targets.length) {
+    return { count: 0, message: 'Không có trận mới nào cần dự đoán trong 48 giờ tới.' };
+  }
+
+  const standings = await computeStandingsText(q);
+  const matchesText = targets
+    .map(m => `${m.id} | ${m.home} vs ${m.away} | Bảng ${m.group_name} | ${m.date_utc.toISOString?.() || m.date_utc}`)
+    .join('\n');
+
+  const response = await ai().models.generateContent({
+    model: MODEL,
+    contents:
+`Bạn là chuyên gia phân tích bóng đá World Cup 2026 (48 đội, 12 bảng, tại Mỹ - Canada - Mexico).
+
+BẢNG XẾP HẠNG HIỆN TẠI:
+${standings || '(giải mới bắt đầu, chưa có kết quả)'}
+
+CÁC TRẬN CẦN DỰ ĐOÁN:
+${matchesText}
+
+Với MỖI trận, dự đoán: tỷ số cụ thể (homeGoals, awayGoals), xác suất phần trăm
+(probHome + probDraw + probAway = 100), và một câu nhận định ngắn bằng TIẾNG VIỆT
+(dưới 30 từ, nêu lý do chính). Dựa trên sức mạnh đội hình, phong độ, lịch sử đối đầu.
+Giữ nguyên matchId như danh sách.`,
+    config: {
+      // Gemini 3.x: không chỉnh temperature/top_p/top_k — đã tối ưu cho mặc định
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            matchId:   { type: Type.STRING },
+            homeGoals: { type: Type.INTEGER },
+            awayGoals: { type: Type.INTEGER },
+            probHome:  { type: Type.INTEGER },
+            probDraw:  { type: Type.INTEGER },
+            probAway:  { type: Type.INTEGER },
+            comment:   { type: Type.STRING }
+          },
+          required: ['matchId', 'homeGoals', 'awayGoals',
+                     'probHome', 'probDraw', 'probAway', 'comment']
+        }
+      }
+    }
+  });
+
+  const preds = extractJson(response.text) || [];
+  const valid = new Set(targets.map(m => String(m.id)));
+  let count = 0;
+
+  for (const p of preds) {
+    if (!valid.has(String(p.matchId))) continue;
+    await q`
+      INSERT INTO predictions
+        (match_id, pred_home, pred_away, prob_home, prob_draw, prob_away, comment)
+      VALUES (${p.matchId}, ${p.homeGoals}, ${p.awayGoals},
+              ${p.probHome}, ${p.probDraw}, ${p.probAway}, ${p.comment})
+      ON CONFLICT (match_id) DO NOTHING`;
+    count++;
+  }
+
+  return { count, message: `🤖 Gemini đã dự đoán ${count} trận sắp diễn ra.` };
+}
+
+async function computeStandingsText(q) {
+  const rows = await q`
+    SELECT group_name, home, away, home_goals, away_goals FROM matches
+    WHERE stage = 'Vòng bảng' AND status IN ('Kết thúc', 'ĐANG ĐÁ', 'Nghỉ giữa hiệp')
+      AND home_goals IS NOT NULL AND away_goals IS NOT NULL`;
+  const t = {};
+  const touch = (name, g) => (t[name] ??= { g, p: 0, pts: 0, gd: 0 });
+  for (const m of rows) {
+    const h = touch(m.home, m.group_name), a = touch(m.away, m.group_name);
+    h.p++; a.p++;
+    h.gd += m.home_goals - m.away_goals;
+    a.gd += m.away_goals - m.home_goals;
+    if (m.home_goals > m.away_goals) h.pts += 3;
+    else if (m.home_goals < m.away_goals) a.pts += 3;
+    else { h.pts++; a.pts++; }
+  }
+  return Object.entries(t)
+    .sort(([, x], [, y]) => x.g.localeCompare(y.g) || y.pts - x.pts || y.gd - x.gd)
+    .map(([name, s]) => `Bảng ${s.g} | ${name}: ${s.p} trận, ${s.pts} điểm, hiệu số ${s.gd}`)
+    .join('\n');
+}
+
+/* ====================================================================
+ *  2. SỐ KHÁN GIẢ & SÂN — Google Search grounding
+ * ==================================================================== */
+
+export async function enrichAttendance() {
+  await ensureSchema();
+  const q = sql();
+
+  const targets = await q`
+    SELECT id, home, away, date_utc FROM matches
+    WHERE status = 'Kết thúc' AND (attendance IS NULL OR venue = '')
+    ORDER BY date_utc DESC
+    LIMIT 8`;
+
+  if (!targets.length) {
+    return { count: 0, message: 'Tất cả trận đã có đủ thông tin sân & khán giả.' };
+  }
+
+  const listText = targets
+    .map(t => `${t.id} | ${t.home} vs ${t.away} | ${new Date(t.date_utc).toISOString().slice(0, 10)}`)
+    .join('\n');
+
+  const response = await ai().models.generateContent({
+    model: MODEL,
+    contents:
+`Hãy dùng Google Search tìm thông tin chính thức các trận World Cup 2026 sau:
+${listText}
+
+Với mỗi trận, tìm: tên sân vận động (venue), thành phố (city), và số khán giả
+chính thức đến sân (attendance, số nguyên).
+CHỈ trả về JSON array, không thêm chữ nào khác, định dạng:
+[{"matchId":"...","venue":"...","city":"...","attendance":72000}]
+Nếu không tìm thấy khán giả thì để attendance = null.`,
+    config: {
+      tools: [{ googleSearch: {} }] // không dùng cùng responseSchema → tự parse JSON
+    }
+  });
+
+  const results = extractJson(response.text) || [];
+  const valid = new Set(targets.map(t => String(t.id)));
+  let count = 0;
+
+  for (const r of results) {
+    if (!valid.has(String(r.matchId))) continue;
+    await q`
+      UPDATE matches SET
+        venue      = COALESCE(NULLIF(${r.venue || ''}, ''), venue),
+        city       = COALESCE(NULLIF(${r.city || ''}, ''), city),
+        attendance = COALESCE(${r.attendance ?? null}, attendance),
+        updated_at = now()
+      WHERE id = ${r.matchId}`;
+    count++;
+  }
+
+  return { count, message: `👥 Đã bổ sung sân & khán giả cho ${count} trận.` };
+}
+
+/* ====================================================================
+ *  3. DỰ PHÒNG — tra tỷ số qua Gemini khi không có FOOTBALL_DATA_TOKEN
+ * ==================================================================== */
+
+export async function fetchScoresViaAI() {
+  const today = new Date().toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+  const response = await ai().models.generateContent({
+    model: MODEL,
+    contents:
+`Hãy dùng Google Search tìm TẤT CẢ các trận World Cup 2026 diễn ra hôm nay
+và hôm qua (hôm nay là ${today}, giờ Việt Nam), gồm cả trận đang đá.
+
+CHỈ trả về JSON array, không thêm chữ nào khác, định dạng mỗi trận:
+[{"home":"Mexico","away":"South Africa","homeGoals":2,"awayGoals":1,
+"status":"FINISHED","group":"A","dateUTC":"2026-06-11T19:00:00Z",
+"venue":"Estadio Azteca","city":"Mexico City","attendance":87000}]
+
+Quy ước: status là một trong SCHEDULED / IN_PLAY / FINISHED.
+Tên đội bằng tiếng Anh. Trận chưa đá thì homeGoals, awayGoals = null.`,
+    config: { tools: [{ googleSearch: {} }] }
+  });
+
+  const list = extractJson(response.text) || [];
+  return list.map(m => {
+    const home = normalizeTeam(m.home);
+    const away = normalizeTeam(m.away);
+    return {
+      id: `AI-${String(m.dateUTC || '').slice(0, 10)}-${home.replace(/\s/g, '')}-${away.replace(/\s/g, '')}`,
+      dateUTC: m.dateUTC || new Date().toISOString(),
+      stage: 'Vòng bảng',
+      group: m.group || '',
+      home, away,
+      homeGoals: m.homeGoals ?? null,
+      awayGoals: m.awayGoals ?? null,
+      status: { SCHEDULED: 'Sắp diễn ra', IN_PLAY: 'ĐANG ĐÁ', FINISHED: 'Kết thúc' }[m.status] || 'Sắp diễn ra',
+      venue: m.venue || '',
+      city: m.city || '',
+      attendance: m.attendance ?? null
+    };
+  });
+}
