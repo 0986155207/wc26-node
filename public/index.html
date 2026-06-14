@@ -198,8 +198,8 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 
 .bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 14px;margin:0 -14px;
   scroll-snap-type:x proximity}
-.bracket{display:flex;gap:14px;padding:0 14px;min-width:min-content}
-.bcol{flex:0 0 auto;width:208px;scroll-snap-align:start}
+.bracket{display:flex;gap:34px;padding:0 14px;min-width:min-content}
+.bcol{flex:0 0 auto;width:200px;scroll-snap-align:start}
 .bcol-h{font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--blue);
   text-align:center;padding:6px;background:#EAF1FB;border-radius:9px;margin-bottom:10px;
   position:sticky;top:0}
@@ -207,8 +207,8 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 .bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
 .bcol{position:relative}
 /* Đường nối nhánh: mỗi cột (trừ cột đầu) vẽ các đường cong nối từ cột trước */
-.bcol-link{position:absolute;left:-14px;top:0;width:14px;height:100%;pointer-events:none;overflow:visible}
-.bcol-link path{fill:none;stroke:var(--line);stroke-width:2}
+.bcol-link{position:absolute;left:-34px;top:0;width:34px;height:100%;pointer-events:none;overflow:visible}
+.bcol-link path{fill:none;stroke:#C9CDD4;stroke-width:2.5}
 .bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
@@ -684,9 +684,10 @@ function drawBracketLinks(){
     const colRect = col.getBoundingClientRect();
     const prevRect = cols[ci - 1].getBoundingClientRect();
     const h = col.offsetHeight;
+    const W = 34;  // chiều rộng dải nối = khoảng cách giữa 2 cột
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'bcol-link');
-    svg.setAttribute('viewBox', `0 0 14 ${h}`);
+    svg.setAttribute('viewBox', `0 0 ${W} ${h}`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.style.height = h + 'px';
 
@@ -699,7 +700,8 @@ function drawBracketLinks(){
         const sr = sc.getBoundingClientRect();
         const sourceY = (sr.top + sr.height / 2) - prevRect.top;
         const p = document.createElementNS(NS, 'path');
-        p.setAttribute('d', `M0,${sourceY} C7,${sourceY} 7,${targetY} 14,${targetY}`);
+        // đường cong chữ S mượt từ giữa thẻ vòng trước → giữa thẻ vòng sau
+        p.setAttribute('d', `M0,${sourceY} C${W / 2},${sourceY} ${W / 2},${targetY} ${W},${targetY}`);
         svg.appendChild(p);
       });
     });
