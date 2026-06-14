@@ -198,17 +198,14 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 
 .bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 14px;margin:0 -14px;
   scroll-snap-type:x proximity}
-.bracket{display:flex;gap:34px;padding:0 14px;min-width:min-content}
-.bcol{flex:0 0 auto;width:200px;scroll-snap-align:start}
+.bracket{display:flex;gap:12px;padding:0 14px;min-width:min-content}
+.bcol{flex:0 0 auto;width:198px;scroll-snap-align:start}
 .bcol-h{font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--blue);
   text-align:center;padding:6px;background:#EAF1FB;border-radius:9px;margin-bottom:10px;
   position:sticky;top:0}
 .bcol.final .bcol-h{background:#FFF3D6;color:#9A7400}
 .bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
 .bcol{position:relative}
-/* Đường nối nhánh: mỗi cột (trừ cột đầu) vẽ các đường cong nối từ cột trước */
-.bcol-link{position:absolute;left:-34px;top:0;width:34px;height:100%;pointer-events:none;overflow:visible}
-.bcol-link path{fill:none;stroke:#C9CDD4;stroke-width:2.5}
 .bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
@@ -667,46 +664,12 @@ function renderKnockout(){
   if (koView === 'bracket') requestAnimationFrame(drawBracketLinks);
 }
 
-// Vẽ đường nối nhánh đấu: 2 trận vòng trước → 1 trận vòng sau (cấu trúc loại trực tiếp)
+// Sơ đồ dạng cột theo vòng (không vẽ đường nối — vì API chưa có dữ liệu cặp nhánh
+// chính thức; vẽ suy đoán sẽ rối và có thể sai). Giữ hàm để dễ bật lại sau này.
 function drawBracketLinks(){
-  const wrap = document.querySelector('#page-knockout .bracket');
-  if (!wrap) return;
-  const cols = [...wrap.querySelectorAll('.bcol')];
-  const NS = 'http://www.w3.org/2000/svg';
-  cols.forEach((col, ci) => {
-    const old = col.querySelector('.bcol-link');
-    if (old) old.remove();
-    if (ci === 0) return;
-    const prevCards = [...cols[ci - 1].querySelectorAll('.bmatch')];
-    const thisCards = [...col.querySelectorAll('.bmatch')];
-    if (!prevCards.length || !thisCards.length) return;
-
-    const colRect = col.getBoundingClientRect();
-    const prevRect = cols[ci - 1].getBoundingClientRect();
-    const h = col.offsetHeight;
-    const W = 34;  // chiều rộng dải nối = khoảng cách giữa 2 cột
-    const svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('class', 'bcol-link');
-    svg.setAttribute('viewBox', `0 0 ${W} ${h}`);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.style.height = h + 'px';
-
-    thisCards.forEach((tc, k) => {
-      const tr = tc.getBoundingClientRect();
-      const targetY = (tr.top + tr.height / 2) - colRect.top;
-      [2 * k, 2 * k + 1].forEach(si => {
-        const sc = prevCards[si];
-        if (!sc) return;
-        const sr = sc.getBoundingClientRect();
-        const sourceY = (sr.top + sr.height / 2) - prevRect.top;
-        const p = document.createElementNS(NS, 'path');
-        // đường cong chữ S mượt từ giữa thẻ vòng trước → giữa thẻ vòng sau
-        p.setAttribute('d', `M0,${sourceY} C${W / 2},${sourceY} ${W / 2},${targetY} ${W},${targetY}`);
-        svg.appendChild(p);
-      });
-    });
-    col.appendChild(svg);
-  });
+  // Đã tắt đường nối cho gọn. Khi có dữ liệu ghép cặp chính thức từ FIFA
+  // sẽ bật lại bằng cách vẽ SVG dựa trên liên kết thật giữa các trận.
+  return;
 }
 
 // Một dòng đội trong thẻ bracket
