@@ -205,13 +205,13 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
   stroke-linejoin:round;stroke-linecap:round}
 .bracket-links path.done{stroke:var(--blue);stroke-width:2.4}
 .bracket-links path.pending{stroke:#D7DEE9;stroke-dasharray:4 5}
-.bcol{flex:0 0 auto;width:198px;scroll-snap-align:start}
+.bcol{flex:0 0 auto;width:198px;scroll-snap-align:start;
+  display:flex;flex-direction:column;position:relative;z-index:1}
 .bcol-h{font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--blue);
   text-align:center;padding:6px;background:#EAF1FB;border-radius:9px;margin-bottom:10px;
   position:sticky;top:0}
 .bcol.final .bcol-h{background:#FFF3D6;color:#9A7400}
-.bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
-.bcol{position:relative;z-index:1}
+.bcol-body{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
 .bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
@@ -691,7 +691,7 @@ function elbowPath(pts, r){
 // trận thứ 2k và 2k+1 của vòng N đi vào trận thứ k của vòng N+1.
 function drawBracketLinks(){
   const wrap = document.querySelector('.bracket');
-  if (!wrap) return;
+  if (!wrap || !wrap.offsetWidth) return;   // tab đang ẩn → bỏ qua, vẽ lại khi hiện
   wrap.querySelector('.bracket-links')?.remove();
 
   const cols = [...wrap.querySelectorAll('.bcol')];
@@ -883,6 +883,11 @@ function goTab(btn){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
   document.getElementById('page-' + btn.dataset.page).classList.add('on');
   window.scrollTo({ top: 0 });
+  // Sơ đồ bracket được dựng lúc tải dữ liệu (có thể khi tab đang ẩn → kích thước = 0,
+  // không vẽ được đường nối). Vẽ lại khi tab vừa hiện ra.
+  if (btn.dataset.page === 'knockout' && koView === 'bracket'){
+    requestAnimationFrame(drawBracketLinks);
+  }
   if (btn.dataset.page === 'schedule'){
     const anchor = document.getElementById('todayAnchor');
     if (anchor) setTimeout(() => anchor.scrollIntoView({ block: 'start' }), 60);
