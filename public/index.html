@@ -70,6 +70,10 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 .mcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px;margin-bottom:10px;position:relative;overflow:hidden}
 .mcard.live{border-color:var(--red)}
+.mcard.tappable{cursor:pointer}
+.mcard.tappable:active{transform:scale(.985)}
+.mcard.tappable .mtop::after{content:'›';position:absolute;right:14px;top:12px;
+  font-size:20px;color:var(--mut);font-weight:700;line-height:1}
 .mcard.live::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
   background:var(--red)}
 .mtop{display:flex;justify-content:space-between;align-items:center;
@@ -144,6 +148,47 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
   max-width:88vw;text-align:center}
 .toast.show{opacity:1}
 
+/* ---------- Popup chi tiết trận (bottom sheet) ---------- */
+.sheet-bg{position:fixed;inset:0;z-index:80;background:rgba(10,16,28,.55);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.sheet-bg.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:81;max-width:680px;margin:0 auto;
+  background:var(--card);border-radius:22px 22px 0 0;padding:8px 16px calc(24px + var(--safe-b));
+  max-height:86vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.22,1,.36,1);
+  -webkit-overflow-scrolling:touch}
+.sheet.show{transform:translateY(0)}
+.sheet .grip{width:40px;height:5px;border-radius:99px;background:var(--line);
+  margin:8px auto 14px}
+.sheet-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
+.sheet-head .team{gap:6px}
+.sheet-head .flag{font-size:38px}
+.sheet-head .sc{font-family:'Archivo Black',sans-serif;font-size:34px}
+.sheet-meta{font-size:12px;color:var(--mut);text-align:center;margin:12px 0 4px;
+  display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center}
+.sheet-meta b{color:var(--ink)}
+.tl-title{font-family:'Archivo Black',sans-serif;font-size:13px;margin:18px 2px 12px;
+  display:flex;align-items:center;gap:8px}
+.tl-title .bar{width:16px;height:4px;border-radius:2px;background:var(--green)}
+.timeline{position:relative;margin:0 4px}
+.tl-row{display:grid;grid-template-columns:1fr 54px 1fr;align-items:center;gap:8px;
+  padding:9px 0;min-height:40px}
+.tl-min{justify-self:center;background:var(--ink);color:#fff;border-radius:99px;
+  font-size:12px;font-weight:800;padding:3px 9px;white-space:nowrap}
+.tl-ev{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.tl-ev.home{justify-content:flex-end;text-align:right}
+.tl-ev.away{justify-content:flex-start;text-align:left}
+.tl-ev .ic{font-size:18px;line-height:1}
+.tl-ev .pl{color:var(--ink)}
+.tl-ev .ty{color:var(--mut);font-size:11px;font-weight:500}
+.summary{background:linear-gradient(90deg,#FFF7E0,#FFFDF4);border:1px solid #F2E2AC;
+  border-radius:14px;padding:13px 14px;margin-top:8px;font-size:13.5px;line-height:1.55;color:#4B4B45}
+.summary .h{font-weight:800;color:#8A6D00;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.sheet-loading{text-align:center;padding:40px 0;color:var(--mut);font-size:13px}
+.sheet-loading .ball{font-size:34px}
+.sheet-note{font-size:11px;color:var(--mut);text-align:center;margin-top:16px;line-height:1.5}
+
 /* ---------- Tab bar kiểu iOS ---------- */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
   background:rgba(255,255,255,.94);backdrop-filter:blur(14px);
@@ -200,6 +245,9 @@ nav button.on .ico{transform:translateY(-1px)}
   <button data-page="groups"   onclick="goTab(this)"><span class="ico">🏆</span>12 Bảng</button>
   <button data-page="ai"       onclick="goTab(this)"><span class="ico">🤖</span>AI Dự đoán</button>
 </nav>
+
+<div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"></div>
 
 <div class="toast" id="toast"></div>
 
@@ -297,7 +345,7 @@ function matchCard(m, showPred){
       <div class="cmt">${esc(p.comment)}</div></div>`;
   }
 
-  return `<div class="mcard${live ? ' live' : ''}">
+  return `<div class="mcard${live ? ' live' : ''}${(live || done) ? ' tappable' : ''}"${(live || done) ? ` onclick="openMatch('${esc(m.id)}')"` : ''}>
     <div class="mtop">
       <span class="chip">${m.group ? 'Bảng ' + esc(m.group) : esc(m.stage)}</span>${badge}
     </div>
@@ -416,7 +464,7 @@ function renderGroups(){
 function renderAI(){
   const el = document.getElementById('page-ai');
   let html = `<button class="btn-ai" id="btnAI" onclick="runPredict()">
-      🤖 Tạo dự đoán cho các trận sắp tới (Gemini 2.5)
+      🤖 Tạo dự đoán cho các trận sắp tới (Gemini 3.5)
     </button>`;
 
   const preds = APP.predictions || [];
@@ -485,6 +533,110 @@ function goTab(btn){
     const anchor = document.getElementById('todayAnchor');
     if (anchor) setTimeout(() => anchor.scrollIntoView({ block: 'start' }), 60);
   }
+}
+
+/* ---------- Popup chi tiết trận ---------- */
+let sheetOpen = false;
+
+function openMatch(id){
+  const m = (APP.matches || []).find(x => String(x.id) === String(id));
+  if (!m) return;
+  const h = TEAM[m.home] || { vi: m.home, flag: '⚽' };
+  const a = TEAM[m.away] || { vi: m.away, flag: '⚽' };
+  const live = isLive(m);
+
+  const head = `
+    <div class="grip"></div>
+    <div class="sheet-head">
+      <div class="team"><span class="flag">${h.flag}</span><span class="name">${esc(h.vi)}</span></div>
+      <div>
+        <div class="sc">${m.homeGoals ?? '–'} : ${m.awayGoals ?? '–'}</div>
+        <div style="text-align:center;font-size:11px;font-weight:700;color:${live ? 'var(--red)' : 'var(--mut)'}">
+          ${live ? '● TRỰC TIẾP' : 'KẾT THÚC'}</div>
+      </div>
+      <div class="team"><span class="flag">${a.flag}</span><span class="name">${esc(a.vi)}</span></div>
+    </div>
+    <div class="sheet-meta">
+      ${m.group ? `<span>Bảng <b>${esc(m.group)}</b></span>` : `<span>${esc(m.stage)}</span>`}
+      ${m.venue ? `<span>🏟️ <b>${esc(m.venue)}</b></span>` : ''}
+      ${m.city ? `<span>📍 ${esc(m.city)}</span>` : ''}
+      ${m.attendance ? `<span>👥 <b>${num(m.attendance)}</b></span>` : ''}
+    </div>`;
+
+  document.getElementById('sheet').innerHTML = head +
+    `<div class="sheet-loading"><div class="ball" style="animation:bounce 1s ease infinite">⚽</div>
+     <div style="margin-top:10px">Đang tải diễn biến trận đấu…</div></div>`;
+
+  openSheet();
+
+  fetch('/api/match?id=' + encodeURIComponent(id))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) throw new Error(d.error);
+      renderSheetBody(m, h, a, d);
+    })
+    .catch(e => {
+      document.querySelector('#sheet .sheet-loading').innerHTML =
+        '😕 Không tải được diễn biến: ' + esc(e.message);
+    });
+}
+
+function renderSheetBody(m, h, a, d){
+  const events = Array.isArray(d.events) ? d.events : [];
+  const icon = t => ({
+    goal: '⚽', penalty: '🥅', own_goal: '🔴', yellow: '🟨', red: '🟥'
+  }[t] || '•');
+  const label = t => ({
+    goal: 'Bàn thắng', penalty: 'Phạt đền', own_goal: 'Phản lưới',
+    yellow: 'Thẻ vàng', red: 'Thẻ đỏ'
+  }[t] || '');
+
+  let timeline = '';
+  if (events.length){
+    timeline = `<div class="tl-title"><span class="bar"></span>Diễn biến chính</div><div class="timeline">`;
+    events.forEach(ev => {
+      const side = ev.team === 'away' ? 'away' : 'home';
+      const cell = `<div class="tl-ev ${side}">
+        <span class="ic">${icon(ev.type)}</span>
+        <span><span class="pl">${esc(ev.player || '')}</span>
+        <span class="ty"> · ${label(ev.type)}</span></span></div>`;
+      const min = `<span class="tl-min">${ev.minute != null ? ev.minute + "'" : ''}</span>`;
+      timeline += `<div class="tl-row">
+        ${side === 'home' ? cell : '<div></div>'}
+        ${min}
+        ${side === 'away' ? cell : '<div></div>'}
+      </div>`;
+    });
+    timeline += `</div>`;
+  }
+
+  const summary = d.summary
+    ? `<div class="summary"><div class="h">📝 Tóm tắt trận đấu</div>${esc(d.summary)}</div>`
+    : '';
+
+  // Bỏ phần loading, ghép nội dung (giữ lại head đã render)
+  const sheet = document.getElementById('sheet');
+  const loadEl = sheet.querySelector('.sheet-loading');
+  if (loadEl) loadEl.remove();
+  sheet.insertAdjacentHTML('beforeend',
+    (timeline || summary
+      ? timeline + summary
+      : `<div class="sheet-loading">⚽ Chưa có dữ liệu diễn biến cho trận này.</div>`) +
+    `<div class="sheet-note">Diễn biến do AI (Gemini) tổng hợp từ nguồn công khai,
+     chỉ mang tính tham khảo và có thể chưa đầy đủ.</div>`);
+}
+
+function openSheet(){
+  document.getElementById('sheetBg').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  sheetOpen = true;
+}
+function closeSheet(){
+  document.getElementById('sheetBg').classList.remove('show');
+  document.getElementById('sheet').classList.remove('show');
+  document.body.style.overflow = '';
+  sheetOpen = false;
 }
 
 function toast(msg){
