@@ -349,7 +349,7 @@ async function enablePush(){
     if (perm !== 'granted'){ toast('Bạn đã từ chối quyền thông báo.'); return; }
 
     const keyRes = await fetch('/api/push?action=key').then(r => r.json());
-    if (!keyRes.publicKey){ toast('Máy chủ chưa cấu hình thông báo (VAPID).'); return; }
+    if (!keyRes.publicKey){ toast(keyRes.error || 'Máy chủ chưa cấu hình thông báo (VAPID).'); return; }
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,

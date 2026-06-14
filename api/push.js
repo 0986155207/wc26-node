@@ -11,7 +11,12 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       // Trả khóa công khai VAPID để trình duyệt đăng ký
-      res.status(200).json({ publicKey: publicKey() });
+      const key = publicKey();
+      if (!key) {
+        res.status(200).json({ publicKey: '', error: 'Máy chủ chưa cấu hình VAPID keys.' });
+        return;
+      }
+      res.status(200).json({ publicKey: key });
       return;
     }
 
