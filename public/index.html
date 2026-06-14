@@ -537,10 +537,14 @@ function goTab(btn){
 
 /* ---------- Popup chi tiết trận ---------- */
 let sheetOpen = false;
+let matchLoading = false;          // chống bấm dồn khi đang tải
+const matchCache = {};             // cache chi tiết trận trong phiên (matchId -> data)
 
 function openMatch(id){
   const m = (APP.matches || []).find(x => String(x.id) === String(id));
   if (!m) return;
+  if (matchLoading) { toast('Đang tải một trận khác, vui lòng đợi…'); return; }
+
   const h = TEAM[m.home] || { vi: m.home, flag: '⚽' };
   const a = TEAM[m.away] || { vi: m.away, flag: '⚽' };
   const live = isLive(m);
@@ -566,19 +570,28 @@ function openMatch(id){
   document.getElementById('sheet').innerHTML = head +
     `<div class="sheet-loading"><div class="ball" style="animation:bounce 1s ease infinite">⚽</div>
      <div style="margin-top:10px">Đang tải diễn biến trận đấu…</div></div>`;
-
   openSheet();
 
+  // Trận đã xem trong phiên này → lấy từ cache, không gọi lại server
+  // (trận đang đá vẫn cho tải lại để cập nhật)
+  if (matchCache[id] && !live){
+    renderSheetBody(m, h, a, matchCache[id]);
+    return;
+  }
+
+  matchLoading = true;
   fetch('/api/match?id=' + encodeURIComponent(id))
     .then(r => r.json())
     .then(d => {
       if (d.error) throw new Error(d.error);
+      if (!live) matchCache[id] = d;          // chỉ cache trận đã kết thúc
       renderSheetBody(m, h, a, d);
     })
     .catch(e => {
-      document.querySelector('#sheet .sheet-loading').innerHTML =
-        '😕 Không tải được diễn biến: ' + esc(e.message);
-    });
+      const load = document.querySelector('#sheet .sheet-loading');
+      if (load) load.innerHTML = '😕 ' + esc(e.message);
+    })
+    .finally(() => { matchLoading = false; });
 }
 
 function renderSheetBody(m, h, a, d){
