@@ -189,6 +189,43 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 .sheet-loading .ball{font-size:34px}
 .sheet-note{font-size:11px;color:var(--mut);text-align:center;margin-top:16px;line-height:1.5}
 
+/* ---------- Vòng knock-out: segmented + bracket ---------- */
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+  padding:3px;margin:4px 2px 16px;gap:3px}
+.seg button{flex:1;border:none;background:none;font-family:inherit;font-size:13px;
+  font-weight:700;color:var(--mut);padding:8px 0;border-radius:9px;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 14px;margin:0 -14px;
+  scroll-snap-type:x proximity}
+.bracket{display:flex;gap:14px;padding:0 14px;min-width:min-content}
+.bcol{flex:0 0 auto;width:208px;scroll-snap-align:start}
+.bcol-h{font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--blue);
+  text-align:center;padding:6px;background:#EAF1FB;border-radius:9px;margin-bottom:10px;
+  position:sticky;top:0}
+.bcol.final .bcol-h{background:#FFF3D6;color:#9A7400}
+.bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
+.bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
+.brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
+.brow + .brow{border-top:1px dashed var(--line)}
+.brow .tm{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .tm .fl{font-size:16px}
+.brow.win .tm{color:var(--green)}
+.brow.lose .tm{opacity:.5}
+.brow .g{font-family:'Archivo Black',sans-serif;font-size:14px;min-width:30px;text-align:right}
+.brow .pen{font-size:10px;color:var(--mut);font-weight:600}
+.btbd{color:var(--mut);font-style:italic;font-weight:500}
+.bmatch-meta{font-size:10px;color:var(--mut);text-align:center;margin-top:5px;
+  padding-top:5px;border-top:1px solid #F1EFE9}
+.bmatch-meta.live{color:var(--red);font-weight:700}
+.champion{background:linear-gradient(135deg,#FFF7E0,#FFE9A8);border:1px solid #F2D580;
+  border-radius:14px;padding:16px;text-align:center;margin-bottom:8px}
+.champion .cup{font-size:40px}
+.champion .lbl{font-size:11px;color:#9A7400;font-weight:700;letter-spacing:2px;margin-top:4px}
+.champion .nm{font-family:'Archivo Black',sans-serif;font-size:22px;color:#7a5a00;margin-top:2px}
+
 /* ---------- Tab bar kiểu iOS ---------- */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
   background:rgba(255,255,255,.94);backdrop-filter:blur(14px);
@@ -236,13 +273,15 @@ nav button.on .ico{transform:translateY(-1px)}
   <section class="page on" id="page-today"></section>
   <section class="page" id="page-schedule"></section>
   <section class="page" id="page-groups"></section>
+  <section class="page" id="page-knockout"></section>
   <section class="page" id="page-ai"></section>
 </main>
 
 <nav>
   <button class="on" data-page="today"   onclick="goTab(this)"><span class="ico">🔴</span>Hôm nay</button>
   <button data-page="schedule" onclick="goTab(this)"><span class="ico">📅</span>Lịch đấu</button>
-  <button data-page="groups"   onclick="goTab(this)"><span class="ico">🏆</span>12 Bảng</button>
+  <button data-page="groups"   onclick="goTab(this)"><span class="ico">📊</span>12 Bảng</button>
+  <button data-page="knockout" onclick="goTab(this)"><span class="ico">🏆</span>Vòng trong</button>
   <button data-page="ai"       onclick="goTab(this)"><span class="ico">🤖</span>AI Dự đoán</button>
 </nav>
 
@@ -301,7 +340,7 @@ function onData(data){
   document.getElementById('updated').textContent =
     syncTxt + (APP.source ? ' · nguồn: ' + APP.source : '') + ' · tự làm mới mỗi phút';
 
-  renderToday(); renderSchedule(); renderGroups(); renderAI();
+  renderToday(); renderSchedule(); renderGroups(); renderKnockout(); renderAI();
 }
 
 /* ---------- tiện ích ---------- */
@@ -310,11 +349,14 @@ const vnTime = d => new Date(d).toLocaleTimeString('vi-VN',
   { hour: '2-digit', minute: '2-digit', timeZone: TZ });
 const vnLong = d => new Date(d).toLocaleDateString('vi-VN',
   { weekday: 'long', day: 'numeric', month: 'numeric', timeZone: TZ });
+const vnShort = d => new Date(d).toLocaleDateString('vi-VN',
+  { day: '2-digit', month: '2-digit', timeZone: TZ }) + ' · ' + vnTime(d);
 const num = n => Number(n).toLocaleString('vi-VN');
 const esc = s => String(s ?? '').replace(/[&<>"]/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const isLive = m => m.status === 'ĐANG ĐÁ' || m.status === 'Nghỉ giữa hiệp';
 const isDone = m => m.status === 'Kết thúc';
+const hasTeams = m => !!(m.home && m.away);   // trận knock-out chưa có đội thì ẩn khỏi lịch
 
 function teamCell(en){
   const t = TEAM[en] || { vi: en, flag: '⚽' };
@@ -359,7 +401,7 @@ function matchCard(m, showPred){
 function renderToday(){
   const el = document.getElementById('page-today');
   const today = vnDate(new Date());
-  const list = (APP.matches || []).filter(m => vnDate(m.dateUTC) === today)
+  const list = (APP.matches || []).filter(m => hasTeams(m) && vnDate(m.dateUTC) === today)
     .sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
 
   const lives = list.filter(isLive);
@@ -381,7 +423,7 @@ function renderToday(){
   }
 
   if (!list.length){
-    const future = (APP.matches || []).filter(m => vnDate(m.dateUTC) > today)
+    const future = (APP.matches || []).filter(m => hasTeams(m) && vnDate(m.dateUTC) > today)
       .sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
     if (future.length){
       const nextDay = vnDate(future[0].dateUTC);
@@ -401,7 +443,7 @@ function renderToday(){
 /* ---------- TAB LỊCH ĐẤU ---------- */
 function renderSchedule(){
   const el = document.getElementById('page-schedule');
-  const sorted = [...(APP.matches || [])].sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
+  const sorted = [...(APP.matches || [])].filter(hasTeams).sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
   if (!sorted.length){
     el.innerHTML = `<div class="empty"><div class="big">📅</div>Chưa có lịch thi đấu.</div>`;
     return;
@@ -458,6 +500,140 @@ function renderGroups(){
     </div>`;
   });
   el.innerHTML = html;
+}
+
+/* ---------- TAB VÒNG TRONG (knock-out) ---------- */
+const KO_ORDER = ['Vòng 1/16', 'Vòng 1/8', 'Tứ kết', 'Bán kết', 'Chung kết'];
+let koView = 'bracket';   // 'bracket' | 'list'
+
+// Xác định đội thắng một trận knock-out (ưu tiên luân lưu nếu hòa)
+function koWinner(m){
+  if (!isDone(m) || m.homeGoals == null || m.awayGoals == null) return null;
+  if (m.homeGoals > m.awayGoals) return 'home';
+  if (m.awayGoals > m.homeGoals) return 'away';
+  if (m.homePen != null && m.awayPen != null){
+    if (m.homePen > m.awayPen) return 'home';
+    if (m.awayPen > m.homePen) return 'away';
+  }
+  return null;
+}
+
+function setKoView(v){ koView = v; renderKnockout(); }
+
+function renderKnockout(){
+  const el = document.getElementById('page-knockout');
+  const ko = (APP.matches || []).filter(m => m.stage && m.stage !== 'Vòng bảng');
+
+  // Có trận knock-out nào với ít nhất 1 đội đã xác định chưa?
+  const anyTeams = ko.some(hasTeams);
+
+  if (!ko.length){
+    el.innerHTML = `<div class="empty"><div class="big">🏆</div>
+      Vòng loại trực tiếp (knock-out) sẽ bắt đầu sau khi kết thúc vòng bảng.
+      Lịch và sơ đồ nhánh đấu sẽ tự động hiển thị tại đây khi có dữ liệu chính thức từ FIFA.</div>`;
+    return;
+  }
+
+  const seg = `<div class="seg">
+    <button class="${koView === 'bracket' ? 'on' : ''}" onclick="setKoView('bracket')">🗂️ Sơ đồ</button>
+    <button class="${koView === 'list' ? 'on' : ''}" onclick="setKoView('list')">📋 Danh sách</button>
+  </div>`;
+
+  // Vô địch (nếu chung kết đã có kết quả)
+  const finalM = ko.find(m => m.stage === 'Chung kết' && isDone(m));
+  let champ = '';
+  if (finalM){
+    const w = koWinner(finalM);
+    if (w){
+      const wt = TEAM[w === 'home' ? finalM.home : finalM.away] || { vi: '?', flag: '🏆' };
+      champ = `<div class="champion"><div class="cup">🏆</div>
+        <div class="lbl">VÔ ĐỊCH WORLD CUP 2026</div>
+        <div class="nm">${wt.flag} ${esc(wt.vi)}</div></div>`;
+    }
+  }
+
+  el.innerHTML = seg + champ + (koView === 'bracket' ? bracketHTML(ko) : koListHTML(ko))
+    + `<div class="sheet-note" style="margin-top:14px">Sơ đồ hiển thị theo dữ liệu chính thức;
+       các cặp đấu sẽ điền dần khi FIFA xác định đội đi tiếp. Bấm vào trận đã đá để xem diễn biến.</div>`;
+}
+
+// Một dòng đội trong thẻ bracket
+function koTeamRow(m, side){
+  const name = side === 'home' ? m.home : m.away;
+  const g = side === 'home' ? m.homeGoals : m.awayGoals;
+  const pen = side === 'home' ? m.homePen : m.awayPen;
+  const otherPen = side === 'home' ? m.awayPen : m.homePen;
+  const w = koWinner(m);
+  const cls = w ? (w === side ? 'win' : 'lose') : '';
+  const t = name ? (TEAM[name] || { vi: name, flag: '⚽' }) : null;
+  const label = t ? `<span class="fl">${t.flag}</span>${esc(t.vi)}` : `<span class="btbd">Chưa xác định</span>`;
+  const penTxt = (pen != null && otherPen != null) ? `<span class="pen"> (${pen})</span>` : '';
+  return `<div class="brow ${cls}">
+    <span class="tm">${label}</span>
+    <span class="g">${g != null ? g : ''}${penTxt}</span>
+  </div>`;
+}
+
+function bracketCard(m){
+  const live = isLive(m), done = isDone(m);
+  const tap = (live || done) && hasTeams(m);
+  const meta = live
+    ? `<div class="bmatch-meta live">● TRỰC TIẾP</div>`
+    : done ? `<div class="bmatch-meta">Kết thúc</div>`
+    : `<div class="bmatch-meta">${vnShort(m.dateUTC)}</div>`;
+  return `<div class="bmatch${tap ? ' tappable' : ''}"${tap ? ` onclick="openMatch('${esc(m.id)}')"` : ''}>
+    ${koTeamRow(m, 'home')}
+    ${koTeamRow(m, 'away')}
+    ${meta}
+  </div>`;
+}
+
+function bracketHTML(ko){
+  // Gom theo vòng, sắp theo thời gian
+  const byStage = {};
+  ko.forEach(m => (byStage[m.stage] = byStage[m.stage] || []).push(m));
+  Object.values(byStage).forEach(a => a.sort((x, y) => x.dateUTC.localeCompare(y.dateUTC)));
+
+  const cols = KO_ORDER.filter(s => byStage[s] && byStage[s].length).map(stage => {
+    const isFinal = stage === 'Chung kết';
+    const cards = byStage[stage].map(bracketCard).join('');
+    return `<div class="bcol${isFinal ? ' final' : ''}">
+      <div class="bcol-h">${stage}</div>
+      <div class="bcol-body">${cards}</div>
+    </div>`;
+  }).join('');
+
+  // Tranh hạng ba (nếu có) hiển thị riêng bên dưới
+  const third = byStage['Tranh hạng ba'];
+  const thirdHTML = third && third.length
+    ? `<div style="margin-top:6px"><div class="bcol-h" style="max-width:208px">Tranh hạng ba</div>
+       ${third.map(bracketCard).join('')}</div>`
+    : '';
+
+  return `<div class="bracket-wrap"><div class="bracket">${cols}</div></div>${thirdHTML}`;
+}
+
+function koListHTML(ko){
+  const order = [...KO_ORDER, 'Tranh hạng ba'];
+  const byStage = {};
+  ko.forEach(m => (byStage[m.stage] = byStage[m.stage] || []).push(m));
+  let html = '';
+  order.forEach(stage => {
+    const list = byStage[stage];
+    if (!list || !list.length) return;
+    list.sort((a, b) => a.dateUTC.localeCompare(b.dateUTC));
+    html += `<h2 class="sec"><span class="bar" style="background:var(--gold)"></span>${stage}</h2>`;
+    list.forEach(m => {
+      // Dùng lại matchCard nếu đã có đội; nếu TBD thì hiện thẻ rút gọn
+      html += hasTeams(m) ? matchCard(m, false)
+        : `<div class="mcard"><div class="mtop"><span class="chip">${stage}</span>
+           <span style="color:var(--mut)">${vnShort(m.dateUTC)}</span></div>
+           <div class="mrow"><div class="team"><span class="name btbd">Chưa xác định</span></div>
+           <div class="score"><span class="time">${vnTime(m.dateUTC)}</span></div>
+           <div class="team"><span class="name btbd">Chưa xác định</span></div></div></div>`;
+    });
+  });
+  return html;
 }
 
 /* ---------- TAB AI DỰ ĐOÁN ---------- */
