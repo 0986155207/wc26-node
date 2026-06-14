@@ -11,6 +11,7 @@
 
 import { syncIfStale } from '../lib/football.js';
 import { predictMatches, enrichAttendance } from '../lib/gemini.js';
+import { runNotifications } from '../lib/notify.js';
 
 export default async function handler(req, res) {
   const auth = req.headers?.authorization || '';
@@ -19,16 +20,24 @@ export default async function handler(req, res) {
     return;
   }
 
-  const report = { sync: null, predictions: null, attendance: null };
+  const report = { sync: null, notifications: null, predictions: null, attendance: null };
+  const hourVN = Number(new Date().toLocaleString('en-US',
+    { hour: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }));
 
+  // Luôn chạy mỗi lần (mỗi 15 phút): đồng bộ tỷ số + gửi thông báo phù hợp
   try { report.sync = await syncIfStale(true); }
   catch (e) { report.sync = { error: e.message }; }
 
-  try { report.predictions = await predictMatches(); }
-  catch (e) { report.predictions = { error: e.message }; }
+  try { report.notifications = await runNotifications(); }
+  catch (e) { report.notifications = { error: e.message }; }
 
-  try { report.attendance = await enrichAttendance(); }
-  catch (e) { report.attendance = { error: e.message }; }
+  // Việc nặng (Gemini) chỉ chạy 1 lần vào buổi sáng để tiết kiệm quota
+  if (hourVN >= 6 && hourVN < 7) {
+    try { report.predictions = await predictMatches(); }
+    catch (e) { report.predictions = { error: e.message }; }
+    try { report.attendance = await enrichAttendance(); }
+    catch (e) { report.attendance = { error: e.message }; }
+  }
 
   console.log('[api/daily]', JSON.stringify(report));
   res.status(200).json(report);

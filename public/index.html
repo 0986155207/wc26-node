@@ -205,6 +205,10 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
   position:sticky;top:0}
 .bcol.final .bcol-h{background:#FFF3D6;color:#9A7400}
 .bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
+.bcol{position:relative}
+/* Đường nối nhánh: mỗi cột (trừ cột đầu) vẽ các đường cong nối từ cột trước */
+.bcol-link{position:absolute;left:-14px;top:0;width:14px;height:100%;pointer-events:none;overflow:visible}
+.bcol-link path{fill:none;stroke:var(--line);stroke-width:2}
 .bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
@@ -225,6 +229,18 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 .champion .cup{font-size:40px}
 .champion .lbl{font-size:11px;color:#9A7400;font-weight:700;letter-spacing:2px;margin-top:4px}
 .champion .nm{font-family:'Archivo Black',sans-serif;font-size:22px;color:#7a5a00;margin-top:2px}
+
+/* ---------- Card bật thông báo ---------- */
+.push-card{background:linear-gradient(135deg,#0A3161,#155CA8);color:#fff;border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.push-card .ic{font-size:26px}
+.push-card .tx{flex:1;font-size:13px;line-height:1.4}
+.push-card .tx b{font-weight:800}
+.push-card button{border:none;background:#fff;color:var(--blue);font-family:inherit;
+  font-weight:800;font-size:13px;border-radius:99px;padding:9px 14px;white-space:nowrap;cursor:pointer}
+.push-card button:active{transform:scale(.96)}
+.push-card.ok{background:#DCEFE5;color:var(--green)}
+.push-card.ok .tx{color:#0a5c3a}
 
 /* ---------- Tab bar kiểu iOS ---------- */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:60;
@@ -301,9 +317,100 @@ let APP = null;          // dữ liệu từ API
 let TEAM = {};           // map TeamEN -> {vi, flag, group}
 let PRED = {};           // map matchId -> prediction
 
+/* ===================== THÔNG BÁO ĐẨY (Web Push) ===================== */
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+function urlB64ToUint8Array(base64){
+  const padding = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// Trả về trạng thái: 'unsupported' | 'need-install' | 'subscribed' | 'can-subscribe'
+async function pushStatus(){
+  if (!pushSupported) return isIOS && !isStandalone ? 'need-install' : 'unsupported';
+  if (isIOS && !isStandalone) return 'need-install';
+  try{
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg){
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) return 'subscribed';
+    }
+  }catch(e){ /* bỏ qua */ }
+  return Notification.permission === 'denied' ? 'denied' : 'can-subscribe';
+}
+
+async function enablePush(){
+  try{
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted'){ toast('Bạn đã từ chối quyền thông báo.'); return; }
+
+    const keyRes = await fetch('/api/push?action=key').then(r => r.json());
+    if (!keyRes.publicKey){ toast('Máy chủ chưa cấu hình thông báo (VAPID).'); return; }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(keyRes.publicKey)
+    });
+
+    await fetch('/api/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'subscribe',
+        subscription: sub.toJSON(),
+        prefs: { daily: true, kickoff: true, result: true }
+      })
+    });
+    toast('✅ Đã bật thông báo! Bạn sẽ nhận lịch đấu, nhắc giờ và kết quả.');
+    renderPushCard();
+  }catch(e){
+    toast('Không bật được thông báo: ' + e.message);
+  }
+}
+
+async function renderPushCard(){
+  const host = document.getElementById('pushCardHost');
+  if (!host) return;
+  const st = await pushStatus();
+  if (st === 'unsupported' || st === 'denied'){ host.innerHTML = ''; return; }
+
+  if (st === 'subscribed'){
+    host.innerHTML = `<div class="push-card ok">
+      <span class="ic">🔔</span>
+      <div class="tx"><b>Đã bật thông báo</b><br>Bạn sẽ nhận lịch đấu mỗi sáng, nhắc trước giờ bóng lăn và kết quả trận.</div>
+    </div>`;
+    return;
+  }
+  if (st === 'need-install'){
+    host.innerHTML = `<div class="push-card">
+      <span class="ic">📲</span>
+      <div class="tx"><b>Bật thông báo trên iPhone</b><br>Bấm nút Chia sẻ của Safari → "Thêm vào MH chính", rồi mở app từ biểu tượng ⚽ để bật thông báo.</div>
+    </div>`;
+    return;
+  }
+  // can-subscribe
+  host.innerHTML = `<div class="push-card">
+    <span class="ic">🔔</span>
+    <div class="tx"><b>Nhận thông báo trận đấu</b><br>Lịch đấu mỗi sáng, nhắc trước 30 phút & kết quả.</div>
+    <button onclick="enablePush()">Bật</button>
+  </div>`;
+}
+
 window.addEventListener('load', () => {
   loadData(false);
   setInterval(() => loadData(false), 60000);  // tự làm mới mỗi 60 giây
+});
+window.addEventListener('resize', () => {
+  if (koView === 'bracket' && document.getElementById('page-knockout').classList.contains('on')) {
+    drawBracketLinks();
+  }
 });
 
 async function loadData(force){
@@ -437,7 +544,8 @@ function renderToday(){
         Chưa có dữ liệu. Bấm "Làm mới" hoặc kiểm tra biến môi trường trên Vercel.</div>`;
     }
   }
-  el.innerHTML = html;
+  el.innerHTML = `<div id="pushCardHost"></div>` + html;
+  renderPushCard();
 }
 
 /* ---------- TAB LỊCH ĐẤU ---------- */
@@ -555,6 +663,48 @@ function renderKnockout(){
   el.innerHTML = seg + champ + (koView === 'bracket' ? bracketHTML(ko) : koListHTML(ko))
     + `<div class="sheet-note" style="margin-top:14px">Sơ đồ hiển thị theo dữ liệu chính thức;
        các cặp đấu sẽ điền dần khi FIFA xác định đội đi tiếp. Bấm vào trận đã đá để xem diễn biến.</div>`;
+
+  if (koView === 'bracket') requestAnimationFrame(drawBracketLinks);
+}
+
+// Vẽ đường nối nhánh đấu: 2 trận vòng trước → 1 trận vòng sau (cấu trúc loại trực tiếp)
+function drawBracketLinks(){
+  const wrap = document.querySelector('#page-knockout .bracket');
+  if (!wrap) return;
+  const cols = [...wrap.querySelectorAll('.bcol')];
+  const NS = 'http://www.w3.org/2000/svg';
+  cols.forEach((col, ci) => {
+    const old = col.querySelector('.bcol-link');
+    if (old) old.remove();
+    if (ci === 0) return;
+    const prevCards = [...cols[ci - 1].querySelectorAll('.bmatch')];
+    const thisCards = [...col.querySelectorAll('.bmatch')];
+    if (!prevCards.length || !thisCards.length) return;
+
+    const colRect = col.getBoundingClientRect();
+    const prevRect = cols[ci - 1].getBoundingClientRect();
+    const h = col.offsetHeight;
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'bcol-link');
+    svg.setAttribute('viewBox', `0 0 14 ${h}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.height = h + 'px';
+
+    thisCards.forEach((tc, k) => {
+      const tr = tc.getBoundingClientRect();
+      const targetY = (tr.top + tr.height / 2) - colRect.top;
+      [2 * k, 2 * k + 1].forEach(si => {
+        const sc = prevCards[si];
+        if (!sc) return;
+        const sr = sc.getBoundingClientRect();
+        const sourceY = (sr.top + sr.height / 2) - prevRect.top;
+        const p = document.createElementNS(NS, 'path');
+        p.setAttribute('d', `M0,${sourceY} C7,${sourceY} 7,${targetY} 14,${targetY}`);
+        svg.appendChild(p);
+      });
+    });
+    col.appendChild(svg);
+  });
 }
 
 // Một dòng đội trong thẻ bracket

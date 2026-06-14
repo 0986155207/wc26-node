@@ -82,6 +82,29 @@ vercel dev               # chạy thử tại http://localhost:3000
 
 ---
 
+## 🔔 Thông báo đẩy (Web Push)
+
+App gửi 3 loại thông báo: **lịch đấu mỗi sáng**, **nhắc trước giờ bóng lăn 30 phút**, **kết quả sau trận**.
+
+### Cấu hình (1 lần)
+1. Tạo cặp khóa VAPID ở máy: `npx web-push generate-vapid-keys`
+2. Thêm 3 biến môi trường trên Vercel (xem `.env.example`):
+   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` → rồi **Redeploy**
+
+### ⚠️ Quan trọng với iPhone (quy định của Apple)
+- Web Push trên iOS **chỉ hoạt động khi app đã "Thêm vào MH chính"** và mở **từ biểu tượng ⚽** (không phải tab Safari)
+- Người dùng phải **bấm nút "Bật"** trong app (không thể tự bật) → app tự hiện hướng dẫn phù hợp
+- Yêu cầu iOS 16.4 trở lên
+
+### Lịch gửi thông báo
+- **Cron Vercel** (`vercel.json`, gói Hobby chỉ cho 1 lần/ngày): chạy **0:00 UTC = 7h sáng VN** → gửi lịch đấu trong ngày + chạy Gemini buổi sáng.
+- **Nhắc giờ bóng lăn & kết quả** cần kiểm tra thường xuyên hơn → dùng **cron ngoài miễn phí**:
+  1. Đăng ký https://cron-job.org (miễn phí)
+  2. Tạo job gọi `https://<domain>/api/daily` **mỗi 15 phút**
+  3. Thêm Header: `Authorization: Bearer <CRON_SECRET>` (đúng giá trị `CRON_SECRET` đã đặt trên Vercel)
+  > Endpoint `/api/daily` tự nhận biết: việc nặng (Gemini) chỉ chạy 1 lần buổi sáng,
+  > còn đồng bộ tỷ số + gửi thông báo nhắc giờ/kết quả chạy mỗi lần được gọi (đã chống trùng).
+
 ## 🔄 Cơ chế "thời gian thực"
 
 - **Không cần cron dày**: mỗi lần `/api/data` được gọi, server kiểm tra mốc `last_sync_ms`.
