@@ -198,14 +198,20 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 
 .bracket-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 14px;margin:0 -14px;
   scroll-snap-type:x proximity}
-.bracket{display:flex;gap:12px;padding:0 14px;min-width:min-content}
+.bracket{display:flex;gap:26px;padding:0 14px;min-width:min-content;position:relative}
+.bracket-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;
+  overflow:visible;z-index:0}
+.bracket-links path{fill:none;stroke:#C9D4E5;stroke-width:2;
+  stroke-linejoin:round;stroke-linecap:round}
+.bracket-links path.done{stroke:var(--blue);stroke-width:2.4}
+.bracket-links path.pending{stroke:#D7DEE9;stroke-dasharray:4 5}
 .bcol{flex:0 0 auto;width:198px;scroll-snap-align:start}
 .bcol-h{font-family:'Archivo Black',sans-serif;font-size:12px;color:var(--blue);
   text-align:center;padding:6px;background:#EAF1FB;border-radius:9px;margin-bottom:10px;
   position:sticky;top:0}
 .bcol.final .bcol-h{background:#FFF3D6;color:#9A7400}
 .bcol-body{display:flex;flex-direction:column;justify-content:space-around;gap:10px;min-height:60px}
-.bcol{position:relative}
+.bcol{position:relative;z-index:1}
 .bmatch{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
 .bmatch.tappable{cursor:pointer}.bmatch.tappable:active{transform:scale(.98)}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
@@ -664,12 +670,69 @@ function renderKnockout(){
   if (koView === 'bracket') requestAnimationFrame(drawBracketLinks);
 }
 
-// Sơ đồ dạng cột theo vòng (không vẽ đường nối — vì API chưa có dữ liệu cặp nhánh
-// chính thức; vẽ suy đoán sẽ rối và có thể sai). Giữ hàm để dễ bật lại sau này.
+// Tạo path trực giao (chỉ ngang/dọc) với các góc bo tròn đi qua các điểm mốc.
+function elbowPath(pts, r){
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++){
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    const d1 = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    const d2 = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    const a = { x: p1.x - (p1.x - p0.x) / (d1 || 1) * rr, y: p1.y - (p1.y - p0.y) / (d1 || 1) * rr };
+    const b = { x: p1.x + (p2.x - p1.x) / (d2 || 1) * rr, y: p1.y + (p2.y - p1.y) / (d2 || 1) * rr };
+    d += ` L ${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${p1.x} ${p1.y} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+  return d;
+}
+
+// Vẽ các nhánh nối giữa hai vòng liên tiếp theo quy ước bracket chuẩn:
+// trận thứ 2k và 2k+1 của vòng N đi vào trận thứ k của vòng N+1.
 function drawBracketLinks(){
-  // Đã tắt đường nối cho gọn. Khi có dữ liệu ghép cặp chính thức từ FIFA
-  // sẽ bật lại bằng cách vẽ SVG dựa trên liên kết thật giữa các trận.
-  return;
+  const wrap = document.querySelector('.bracket');
+  if (!wrap) return;
+  wrap.querySelector('.bracket-links')?.remove();
+
+  const cols = [...wrap.querySelectorAll('.bcol')];
+  if (cols.length < 2) return;
+  const base = wrap.getBoundingClientRect();
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'bracket-links');
+  svg.setAttribute('viewBox', `0 0 ${wrap.scrollWidth} ${wrap.scrollHeight}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  // Toạ độ tâm cạnh trái/phải của một thẻ trận, quy về hệ toạ độ của .bracket
+  const edge = (card, side) => {
+    const r = card.getBoundingClientRect();
+    return {
+      x: (side === 'left' ? r.left : r.right) - base.left,
+      y: r.top - base.top + r.height / 2
+    };
+  };
+
+  for (let c = 0; c < cols.length - 1; c++){
+    const src = [...cols[c].querySelectorAll('.bmatch')];
+    const dst = [...cols[c + 1].querySelectorAll('.bmatch')];
+    if (!src.length || !dst.length) continue;
+
+    dst.forEach((target, j) => {
+      const a = src[2 * j], b = src[2 * j + 1];
+      const t = edge(target, 'left');
+      [a, b].forEach(s => {
+        if (!s) return;
+        const p = edge(s, 'right');
+        const midX = (p.x + t.x) / 2;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', elbowPath(
+          [{ x: p.x, y: p.y }, { x: midX, y: p.y }, { x: midX, y: t.y }, { x: t.x, y: t.y }], 9));
+        path.setAttribute('class', s.querySelector('.brow.win') ? 'done' : 'pending');
+        svg.appendChild(path);
+      });
+    });
+  }
+
+  wrap.insertBefore(svg, wrap.firstChild);
 }
 
 // Một dòng đội trong thẻ bracket
