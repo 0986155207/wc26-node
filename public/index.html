@@ -233,6 +233,24 @@ h2.sec .bar{width:18px;height:4px;border-radius:2px;background:var(--green)}
 .champion .lbl{font-size:11px;color:#9A7400;font-weight:700;letter-spacing:2px;margin-top:4px}
 .champion .nm{font-family:'Archivo Black',sans-serif;font-size:22px;color:#7a5a00;margin-top:2px}
 
+/* ---------- Vua phá lưới ---------- */
+.scorer-list{display:flex;flex-direction:column;gap:8px}
+.scorer{display:flex;align-items:center;gap:12px;background:var(--card);
+  border:1px solid var(--line);border-radius:14px;padding:11px 14px}
+.scorer.top{background:linear-gradient(135deg,#FFFBEF,#FFF4D6);border-color:#F2D580}
+.scorer .rk{flex:0 0 30px;text-align:center;font-family:'Archivo Black',sans-serif;
+  font-size:17px;color:var(--mut)}
+.scorer.top .rk{font-size:22px}
+.scorer .who{flex:1;display:flex;align-items:center;gap:9px;min-width:0}
+.scorer .who .flag{font-size:22px}
+.scorer .who .nm{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.scorer .who .tm{font-size:12px;color:var(--mut);font-weight:600;flex:0 0 auto}
+.scorer .gl{flex:0 0 auto;font-family:'Archivo Black',sans-serif;font-size:20px;
+  color:var(--blue);display:flex;align-items:baseline;gap:4px}
+.scorer .gl span{font-size:11px;font-weight:700;color:var(--mut);font-family:inherit}
+.scorer .gl .pen{font-size:10px}
+
 /* ---------- Card bật thông báo ---------- */
 .push-card{background:linear-gradient(135deg,#0A3161,#155CA8);color:#fff;border-radius:var(--radius);
   padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
@@ -293,6 +311,7 @@ nav button.on .ico{transform:translateY(-1px)}
   <section class="page" id="page-schedule"></section>
   <section class="page" id="page-groups"></section>
   <section class="page" id="page-knockout"></section>
+  <section class="page" id="page-scorers"></section>
   <section class="page" id="page-ai"></section>
 </main>
 
@@ -301,6 +320,7 @@ nav button.on .ico{transform:translateY(-1px)}
   <button data-page="schedule" onclick="goTab(this)"><span class="ico">📅</span>Lịch đấu</button>
   <button data-page="groups"   onclick="goTab(this)"><span class="ico">📊</span>12 Bảng</button>
   <button data-page="knockout" onclick="goTab(this)"><span class="ico">🏆</span>Vòng trong</button>
+  <button data-page="scorers"  onclick="goTab(this)"><span class="ico">👟</span>Phá lưới</button>
   <button data-page="ai"       onclick="goTab(this)"><span class="ico">🤖</span>AI Dự đoán</button>
 </nav>
 
@@ -861,6 +881,54 @@ function renderAI(){
   el.innerHTML = html;
 }
 
+/* ---------- Vua phá lưới ---------- */
+let SCORERS = null;
+
+async function loadScorers(force){
+  const el = document.getElementById('page-scorers');
+  if (SCORERS && !force){ renderScorers(); return; }
+  el.innerHTML = `<div class="sheet-loading"><div class="ball" style="animation:bounce 1s ease infinite">⚽</div>
+    <div style="margin-top:10px">Đang tổng hợp vua phá lưới…</div></div>`;
+  try{
+    const r = await fetch('/api/scorers' + (force ? '?refresh=1' : ''));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+    SCORERS = d;
+    renderScorers();
+  }catch(e){
+    el.innerHTML = `<div class="empty"><div class="big">😕</div>${esc(e.message)}</div>`;
+  }
+}
+
+function renderScorers(){
+  const el = document.getElementById('page-scorers');
+  const list = (SCORERS && SCORERS.scorers) || [];
+  if (!list.length){
+    el.innerHTML = `<div class="empty"><div class="big">👟</div>
+      Chưa có dữ liệu ghi bàn. Bảng sẽ tự cập nhật khi có trận kết thúc.</div>`;
+    return;
+  }
+  let rows = '', rank = 0, prev = null;
+  list.forEach((s, i) => {
+    if (s.goals !== prev){ rank = i + 1; prev = s.goals; }
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    const pen = s.pens ? `<span class="pen"> (${s.pens} pen)</span>` : '';
+    rows += `<div class="scorer ${rank <= 3 ? 'top' : ''}">
+      <div class="rk">${medal}</div>
+      <div class="who"><span class="flag">${s.flag}</span>
+        <span class="nm">${esc(s.player)}</span><span class="tm">${esc(s.vi)}</span></div>
+      <div class="gl">${s.goals}<span>bàn${pen}</span></div>
+    </div>`;
+  });
+  const upd = SCORERS.updatedAt
+    ? new Date(SCORERS.updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+    : '';
+  el.innerHTML = `<h2 class="sec"><span class="bar" style="background:var(--gold)"></span>👟 Vua phá lưới</h2>
+    <div class="scorer-list">${rows}</div>
+    <div class="sheet-note" style="margin-top:14px">Tổng hợp từ ESPN · không tính bàn phản lưới${upd ? ' · cập nhật ' + upd : ''}.
+      <a onclick="loadScorers(true)" style="color:var(--blue);cursor:pointer;font-weight:700">Làm mới</a></div>`;
+}
+
 async function runPredict(){
   const b = document.getElementById('btnAI');
   b.disabled = true; b.textContent = '🤖 Gemini đang phân tích…';
@@ -888,6 +956,7 @@ function goTab(btn){
   if (btn.dataset.page === 'knockout' && koView === 'bracket'){
     requestAnimationFrame(drawBracketLinks);
   }
+  if (btn.dataset.page === 'scorers'){ loadScorers(); }
   if (btn.dataset.page === 'schedule'){
     const anchor = document.getElementById('todayAnchor');
     if (anchor) setTimeout(() => anchor.scrollIntoView({ block: 'start' }), 60);
