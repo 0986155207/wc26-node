@@ -9,7 +9,7 @@
  *  curl -H "Authorization: Bearer <CRON_SECRET>" https://<domain>/api/daily
  ************************************************************************/
 
-import { syncIfStale } from '../lib/football.js';
+import { syncIfStale, enrichVenues } from '../lib/football.js';
 import { predictMatches, enrichAttendance } from '../lib/gemini.js';
 import { runNotifications } from '../lib/notify.js';
 
@@ -20,13 +20,17 @@ export default async function handler(req, res) {
     return;
   }
 
-  const report = { sync: null, notifications: null, predictions: null, attendance: null };
+  const report = { sync: null, venues: null, notifications: null, predictions: null, attendance: null };
   const hourVN = Number(new Date().toLocaleString('en-US',
     { hour: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }));
 
   // Luôn chạy mỗi lần (mỗi 15 phút): đồng bộ tỷ số + gửi thông báo phù hợp
   try { report.sync = await syncIfStale(true); }
   catch (e) { report.sync = { error: e.message }; }
+
+  // Điền sân/quốc gia/sức chứa cho toàn bộ trận còn thiếu (1 lần/ngày là đủ)
+  try { report.venues = await enrichVenues(60); }
+  catch (e) { report.venues = { error: e.message }; }
 
   try { report.notifications = await runNotifications(); }
   catch (e) { report.notifications = { error: e.message }; }

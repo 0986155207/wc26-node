@@ -504,9 +504,11 @@ function matchCard(m, showPred){
     : `<div class="score"><span class="time">${vnTime(m.dateUTC)}</span></div>`;
 
   const info = [];
-  if (m.venue) info.push(`🏟️ <b>${esc(m.venue)}</b>${m.city ? ' · ' + esc(m.city) : ''}`);
-  else if (m.city) info.push(`📍 ${esc(m.city)}`);
-  if (m.attendance) info.push(`👥 <b>${num(m.attendance)}</b> khán giả`);
+  if (m.venue) info.push(`🏟️ <b>${esc(m.venue)}</b>`);
+  const loc = [m.city, m.country].filter(Boolean).join(', ');
+  if (loc) info.push(`📍 ${esc(loc)}`);
+  if (m.capacity) info.push(`👥 Sức chứa <b>${num(m.capacity)}</b>`);
+  if (m.attendance) info.push(`🎟️ <b>${num(m.attendance)}</b> khán giả`);
 
   let ai = '';
   const p = PRED[String(m.id)];
@@ -991,8 +993,9 @@ function openMatch(id){
     <div class="sheet-meta">
       ${m.group ? `<span>Bảng <b>${esc(m.group)}</b></span>` : `<span>${esc(m.stage)}</span>`}
       ${m.venue ? `<span>🏟️ <b>${esc(m.venue)}</b></span>` : ''}
-      ${m.city ? `<span>📍 ${esc(m.city)}</span>` : ''}
-      ${m.attendance ? `<span>👥 <b>${num(m.attendance)}</b></span>` : ''}
+      ${(m.city || m.country) ? `<span>📍 ${esc([m.city, m.country].filter(Boolean).join(', '))}</span>` : ''}
+      ${m.capacity ? `<span>👥 Sức chứa <b>${num(m.capacity)}</b></span>` : ''}
+      ${m.attendance ? `<span>🎟️ <b>${num(m.attendance)}</b></span>` : ''}
     </div>`;
 
   document.getElementById('sheet').innerHTML = head +
